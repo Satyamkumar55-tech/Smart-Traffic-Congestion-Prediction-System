@@ -1,0 +1,9 @@
+{
+    "mae": 325.58,
+    "rmse": 411.35,
+    "r2_score": 0.9535,
+    "total_samples": 6000,
+    "train_samples": 4800,
+    "test_samples": 1200,
+    "model_name": "Random Forest Regressor"
+}
