@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-Powered Smart Traffic Congestion Prediction System based on Metro Interstate Traffic Dataset. Predict real-time traffic volume and congestion levels.">
+    <title>Smart Traffic Congestion Prediction System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="glow-bg-accent glow-1"></div>
+    <div class="glow-bg-accent glow-2"></div>
+
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="main-header">
+            <div class="brand-badge">
+                <i class="fa-solid fa-brain"></i> Machine Learning Analytics Project
+            </div>
+            <h1 class="main-title">Smart Traffic Congestion Prediction System</h1>
+            <p class="subtitle">Real-Time Metro Interstate Traffic Volume Forecasting & AI Congestion Diagnostics</p>
+            
+            <!-- Model Performance Pill Badges -->
+            {% if metrics %}
+            <div class="metrics-bar">
+                <div class="metric-pill">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>Model: <strong>{{ metrics.model_name }}</strong></span>
+                </div>
+                <div class="metric-pill">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>R² Accuracy: <strong>{{ (metrics.r2_score * 100)|round(1) }}%</strong></span>
+                </div>
+                <div class="metric-pill">
+                    <i class="fa-solid fa-car-side"></i>
+                    <span>MAE Error: <strong>±{{ metrics.mae }} veh/hr</strong></span>
+                </div>
+            </div>
+            {% endif %}
+        </header>
+
+        <!-- Main Content Layout -->
+        <main class="content-grid">
+            <!-- Left Side: Interactive Input Form -->
+            <section class="card input-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-sliders"></i> Environmental & Temporal Parameters</h2>
+                    <p>Adjust the controls below or pick a preset scenario to predict traffic volume.</p>
+                </div>
+
+                <!-- Quick Presets Bar -->
+                <div class="preset-section">
+                    <label><i class="fa-solid fa-bolt"></i> Quick Test Scenarios:</label>
+                    <div class="preset-buttons">
+                        <button type="button" class="preset-btn" onclick="applyPreset('morning_rush')">
+                            <i class="fa-solid fa-sun"></i> Morning Rush
+                        </button>
+                        <button type="button" class="preset-btn" onclick="applyPreset('evening_rush')">
+                            <i class="fa-solid fa-car-burst"></i> Evening Rush
+                        </button>
+                        <button type="button" class="preset-btn" onclick="applyPreset('heavy_rain')">
+                            <i class="fa-solid fa-cloud-showers-heavy"></i> Storm Delay
+                        </button>
+                        <button type="button" class="preset-btn" onclick="applyPreset('late_night')">
+                            <i class="fa-solid fa-moon"></i> Late Night Clear
+                        </button>
+                    </div>
+                </div>
+
+                <form id="prediction-form" action="/predict" method="POST">
+                    <div class="form-grid">
+                        <!-- Hour of Day Slider -->
+                        <div class="form-group full-width">
+                            <div class="label-wrapper">
+                                <label for="hour"><i class="fa-regular fa-clock"></i> Hour of Day</label>
+                                <span class="badge-value" id="hour-val">08:00 AM</span>
+                            </div>
+                            <input type="range" id="hour" name="hour" min="0" max="23" value="8" step="1" oninput="updateHourDisplay(this.value)">
+                            <div class="slider-ticks">
+                                <span>12 AM</span>
+                                <span>6 AM</span>
+                                <span>12 PM</span>
+                                <span>6 PM</span>
+                                <span>11 PM</span>
+                            </div>
+                        </div>
+
+                        <!-- Day of the Week -->
+                        <div class="form-group">
+                            <label for="day_of_week"><i class="fa-regular fa-calendar-days"></i> Day of Week</label>
+                            <select id="day_of_week" name="day_of_week" class="custom-select">
+                                {% for day in days_of_week %}
+                                <option value="{{ day.id }}" {% if day.id == 0 %}selected{% endif %}>{{ day.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Weather Condition -->
+                        <div class="form-group">
+                            <label for="weather_main"><i class="fa-solid fa-cloud-sun"></i> Weather Condition</label>
+                            <select id="weather_main" name="weather_main" class="custom-select">
+                                {% for w in weather_options %}
+                                <option value="{{ w }}" {% if w == 'Clear' %}selected{% endif %}>{{ w }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Temperature Slider -->
+                        <div class="form-group">
+                            <div class="label-wrapper">
+                                <label for="temp_c"><i class="fa-solid fa-temperature-half"></i> Temperature (°C)</label>
+                                <span class="badge-value" id="temp-val">20.0 °C</span>
+                            </div>
+                            <input type="range" id="temp_c" name="temp_c" min="-25" max="40" value="20" step="0.5" oninput="updateTempDisplay(this.value)">
+                        </div>
+
+                        <!-- Cloudiness Slider -->
+                        <div class="form-group">
+                            <div class="label-wrapper">
+                                <label for="clouds_all"><i class="fa-solid fa-cloud"></i> Cloud Cover (%)</label>
+                                <span class="badge-value" id="clouds-val">20 %</span>
+                            </div>
+                            <input type="range" id="clouds_all" name="clouds_all" min="0" max="100" value="20" step="5" oninput="document.getElementById('clouds-val').innerText = this.value + ' %'">
+                        </div>
+
+                        <!-- Rainfall mm -->
+                        <div class="form-group">
+                            <label for="rain_1h"><i class="fa-solid fa-droplet"></i> Rain (mm/hr)</label>
+                            <input type="number" id="rain_1h" name="rain_1h" min="0" max="50" value="0.0" step="0.1" class="custom-input">
+                        </div>
+
+                        <!-- Snowfall mm -->
+                        <div class="form-group">
+                            <label for="snow_1h"><i class="fa-solid fa-snowflake"></i> Snow (mm/hr)</label>
+                            <input type="number" id="snow_1h" name="snow_1h" min="0" max="25" value="0.0" step="0.1" class="custom-input">
+                        </div>
+
+                        <!-- Is Holiday Switch -->
+                        <div class="form-group full-width switch-group">
+                            <div class="switch-text">
+                                <span class="switch-title"><i class="fa-solid fa-umbrella-beach"></i> Official Holiday / Non-Working Day</span>
+                                <span class="switch-desc">Reduces baseline commuter traffic significantly</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="is_holiday_check" onchange="document.getElementById('is_holiday').value = this.checked ? '1' : '0'">
+                                <span class="slider round"></span>
+                            </label>
+                            <input type="hidden" id="is_holiday" name="is_holiday" value="0">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="predict-btn">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Predict Traffic Congestion
+                    </button>
+                </form>
+            </section>
+
+            <!-- Right Side: Interactive Prediction Dashboard -->
+            <section class="card result-card" id="result-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-gauge-high"></i> Congestion Analytics Dashboard</h2>
+                    <p>AI Model Inference & Interstate Route Conditions</p>
+                </div>
+
+                <!-- Initial Placeholder / Empty State -->
+                <div id="empty-state" class="empty-state {% if result %}hidden{% endif %}">
+                    <div class="pulse-ring">
+                        <i class="fa-solid fa-traffic-light"></i>
+                    </div>
+                    <h3>Ready for Prediction</h3>
+                    <p>Select your weather and time conditions on the left and click <strong>Predict Traffic Congestion</strong> to generate real-time predictions.</p>
+                </div>
+
+                <!-- Loading Spinner State -->
+                <div id="loading-state" class="loading-state hidden">
+                    <div class="spinner"></div>
+                    <p>Running Random Forest inference model...</p>
+                </div>
+
+                <!-- Result Display Container -->
+                <div id="result-container" class="result-container {% if not result %}hidden{% endif %}">
+                    {% if result %}
+                    <!-- Dynamic Top Status Badge -->
+                    <div class="congestion-status-box badge-{{ result.congestion.badge_class }}">
+                        <div class="status-icon">
+                            <i class="fa-solid {{ result.congestion.icon }}"></i>
+                        </div>
+                        <div class="status-details">
+                            <span class="status-tag">{{ result.congestion.level }} CONGESTION</span>
+                            <h3 class="status-title">{{ result.congestion.summary }}</h3>
+                        </div>
+                    </div>
+
+                    <!-- Volume Big Counter Card -->
+                    <div class="volume-display-card">
+                        <span class="volume-label">PREDICTED TRAFFIC VOLUME</span>
+                        <div class="volume-number-wrap">
+                            <span class="volume-number" id="res-volume">{{ result.formatted_volume }}</span>
+                            <span class="volume-unit">vehicles / hr</span>
+                        </div>
+                        <p class="volume-subtitle">Estimated Westbound I-94 Freeway Traffic</p>
+                    </div>
+
+                    <!-- Traffic Capacity Meter Gauge -->
+                    <div class="gauge-container">
+                        <div class="gauge-header">
+                            <span>Highway Capacity Load</span>
+                            <span class="gauge-pct" id="res-pct">{{ result.congestion.congestion_pct }}%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill progress-{{ result.congestion.badge_class }}" id="res-bar" style="width: {{ result.congestion.congestion_pct }}%;"></div>
+                        </div>
+                        <div class="gauge-labels">
+                            <span>0 (Low)</span>
+                            <span>3,500 (Moderate)</span>
+                            <span>7,500+ (High)</span>
+                        </div>
+                    </div>
+
+                    <!-- AI Traffic Advisory Box -->
+                    <div class="advisory-box">
+                        <h4><i class="fa-solid fa-compass"></i> Driver Advisory & Route Intelligence</h4>
+                        <p id="res-advice">{{ result.congestion.advice }}</p>
+                    </div>
+
+                    <!-- Input Parameters Recap -->
+                    <div class="input-recap">
+                        <h4><i class="fa-solid fa-list-check"></i> Parameter Summary</h4>
+                        <div class="recap-grid">
+                            <div class="recap-item"><span>Time:</span> <strong id="recap-time">{{ result.inputs_summary.hour }}</strong></div>
+                            <div class="recap-item"><span>Day:</span> <strong id="recap-day">{{ result.inputs_summary.day }}</strong></div>
+                            <div class="recap-item"><span>Weather:</span> <strong id="recap-weather">{{ result.inputs_summary.weather }}</strong></div>
+                            <div class="recap-item"><span>Temp:</span> <strong id="recap-temp">{{ result.inputs_summary.temp }}</strong></div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- JavaScript Dynamic Template Container -->
+                    <div id="dynamic-result-body"></div>
+                    {% endif %}
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="main-footer">
+            <p>Smart Traffic Congestion Prediction System &copy; 2026 | Powered by Flask, Pandas, & Scikit-Learn | Metro Interstate Traffic Volume Dataset</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
